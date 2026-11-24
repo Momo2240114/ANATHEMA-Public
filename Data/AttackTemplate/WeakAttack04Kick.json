@@ -1,0 +1,56 @@
+{
+    "AssetType": "AttackTemplate",
+    "AssetVersion": 1,
+    "attack": {
+        "allowMultiHit": false,
+        "damage": 80.0,
+        "impactPower": 30.0,
+        "damageRate": 0.8,
+        "hitGroupId": 1,
+        "hitStopDuration": 0.055,
+        "hitStopScale": 0.6,
+        "knockBackPower": 5.5,
+        "knockBackType": 0
+    },
+    "feedback": {
+        "hitSoundPath": "Data/Audio/SE/Sonniss/Combat/LightHit.wav",
+        "volume": 0.6,
+        "minDistance": 8.0,
+        "maxDistance": 100.0
+    },
+    "cameraShake": {
+        "enabled": true,
+        "powerLevel": 1
+    },
+    "attackEffects": [],
+    "displayName": "WeakAttack_04_Kick",
+    "hitEffect": {
+        "hitMeshVfxAssetPath": "",
+        "hitParticleAssetPath": "LargeHitSparks_Weak",
+        "hitParticleEmitterName": "",
+        "hitParticleLifeTime": 0.65,
+        "hitParticleNormalOffset": 0.08,
+        "hitParticleUseImpactAxis": true,
+        "hitParticleAxisToAttackerBlend": 0.75,
+        "hitParticleUseTargetAttraction": true,
+        "hitParticleTargetAttractionStrength": 1.4,
+        "hitParticleTargetAttractionRange": 3.0,
+        "hitParticleTargetAttractionFalloff": 1.25,
+        "spawnOnHit": true
+    },
+    "id": "WeakAttack04Kick",
+    "owner": {
+        "canHitOwner": false,
+        "ownerTarget": 0
+    },
+    "slashEffects": [],
+    "weaponHitBox": {
+        "activeEndTime": 0.18,
+        "activeStartTime": 0.0,
+        "enabled": true,
+        "endNodeName": "",
+        "hitBoxName": "Kick",
+        "radius": 4.42,
+        "startNodeName": ""
+    }
+}

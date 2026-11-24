@@ -1,0 +1,288 @@
+{
+    "actions": {
+        "Player.DebugGuardHit": [
+            [
+                {
+                    "code": 70,
+                    "dev": 0
+                }
+            ]
+        ],
+        "Player.Dodge": [
+            [
+                {
+                    "code": 16,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 131072,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.Guard": [
+            [
+                {
+                    "code": 81,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 65536,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.Jump": [
+            [
+                {
+                    "code": 32,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 4096,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.JustGuard": [
+            [
+                {
+                    "code": 67,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 8192,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.LockOn": [
+            [
+                {
+                    "code": 90,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 128,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.SkillA": [
+            [
+                {
+                    "code": 69,
+                    "dev": 0
+                }
+            ]
+        ],
+        "Player.SkillB": [
+            [
+                {
+                    "code": 82,
+                    "dev": 0
+                }
+            ]
+        ],
+        "Player.SkillC": [
+            [
+                {
+                    "code": 84,
+                    "dev": 0
+                }
+            ]
+        ],
+        "Player.StrongAttack": [
+            [
+                {
+                    "code": 2,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 32768,
+                    "dev": 1
+                }
+            ]
+        ],
+        "Player.WeakAttack": [
+            [
+                {
+                    "code": 1,
+                    "dev": 0
+                }
+            ],
+            [
+                {
+                    "code": 16384,
+                    "dev": 1
+                }
+            ]
+        ],
+        "UI.MenuPrevious": [
+            [
+                {
+                    "dev": 0,
+                    "code": 38
+                }
+            ],
+            [
+                {
+                    "dev": 1,
+                    "code": 1
+                }
+            ],
+            [
+                {
+                    "dev": 1,
+                    "code": 262144
+                }
+            ]
+        ],
+        "UI.MenuNext": [
+            [
+                {
+                    "dev": 0,
+                    "code": 40
+                }
+            ],
+            [
+                {
+                    "dev": 1,
+                    "code": 2
+                }
+            ],
+            [
+                {
+                    "dev": 1,
+                    "code": 524288
+                }
+            ]
+        ],
+        "UI.MenuConfirm": [
+            [
+                {
+                    "dev": 0,
+                    "code": 13
+                }
+            ],
+            [
+                {
+                    "dev": 1,
+                    "code": 4096
+                }
+            ]
+        ],
+        "UI.OpenEditor": [
+            [
+                {
+                    "dev": 0,
+                    "code": 112
+                }
+            ]
+        ],
+        "UI.PresentationSettings": [
+            [
+                {
+                    "dev": 0,
+                    "code": 113
+                }
+            ]
+        ]
+    },
+    "axes": {
+        "Camera_LookMouseX": [
+            {
+                "code": 0,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": 1.0,
+                "sourceType": 1
+            }
+        ],
+        "Camera_LookMouseY": [
+            {
+                "code": 1,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": 1.0,
+                "sourceType": 1
+            }
+        ],
+        "Camera_LookStickX": [
+            {
+                "code": 4,
+                "deadZone": 0.15000000596046448,
+                "dev": 1,
+                "scale": 1.0,
+                "sourceType": 2
+            }
+        ],
+        "Camera_LookStickY": [
+            {
+                "code": 5,
+                "deadZone": 0.15000000596046448,
+                "dev": 1,
+                "scale": 1.0,
+                "sourceType": 2
+            }
+        ],
+        "Player.MoveX": [
+            {
+                "code": 65,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": -1.0,
+                "sourceType": 0
+            },
+            {
+                "code": 68,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": 1.0,
+                "sourceType": 0
+            },
+            {
+                "code": 2,
+                "deadZone": 0.15000000596046448,
+                "dev": 1,
+                "scale": 1.0,
+                "sourceType": 2
+            }
+        ],
+        "Player.MoveZ": [
+            {
+                "code": 83,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": -1.0,
+                "sourceType": 0
+            },
+            {
+                "code": 87,
+                "deadZone": 0.15000000596046448,
+                "dev": 0,
+                "scale": 1.0,
+                "sourceType": 0
+            },
+            {
+                "code": 3,
+                "deadZone": 0.15000000596046448,
+                "dev": 1,
+                "scale": 1.0,
+                "sourceType": 2
+            }
+        ]
+    }
+}

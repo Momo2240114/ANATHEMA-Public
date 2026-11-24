@@ -1,0 +1,26 @@
+{
+  "Entries": [
+    {
+      "NormalOffset": 0.2,
+      "Color": [
+        0.5,
+        0.42,
+        0.35,
+        0.8
+      ],
+      "Type": 0,
+      "FadeOutDuration": 0.0,
+      "Enabled": true,
+      "AssetPath": "Data/Particle/DragonFootDust.json",
+      "Scale": [
+        14,
+        14,
+        14
+      ],
+      "LifeTime": 5.0,
+      "EmitterName": ""
+    }
+  ],
+  "AssetType": "ImpactEffect",
+  "AssetVersion": 1
+}

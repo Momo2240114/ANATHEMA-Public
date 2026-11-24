@@ -1,0 +1,57 @@
+{
+    "AssetType": "AttackTemplate",
+    "AssetVersion": 1,
+    "attack": {
+        "allowMultiHit": false,
+        "damage": 55.0,
+        "impactPower": 12.0,
+        "damageRate": 0.55,
+        "hitGroupId": 0,
+        "hitStopDuration": 0.035,
+        "hitStopScale": 0.85,
+        "knockBackPower": 2.0,
+        "knockBackType": 0
+    },
+    "feedback": {
+        "startSoundPath": "Data/Audio/SE/Sword-Practice-2.wav",
+        "hitSoundPath": "Data/Audio/SE/Swordsmanship-2.wav",
+        "volume": 0.75,
+        "minDistance": 8.0,
+        "maxDistance": 80.0
+    },
+    "cameraShake": {
+        "enabled": true,
+        "powerLevel": 1
+    },
+    "attackEffects": [],
+    "displayName": "WeakAttack_03",
+    "hitEffect": {
+        "hitMeshVfxAssetPath": "",
+        "hitParticleAssetPath": "LargeHitSparks_Weak",
+        "hitParticleEmitterName": "",
+        "hitParticleLifeTime": 0.5,
+        "hitParticleNormalOffset": 0.06,
+        "hitParticleUseImpactAxis": true,
+        "hitParticleAxisToAttackerBlend": 0.85,
+        "hitParticleUseTargetAttraction": true,
+        "hitParticleTargetAttractionStrength": 1.4,
+        "hitParticleTargetAttractionRange": 3.0,
+        "hitParticleTargetAttractionFalloff": 1.25,
+        "spawnOnHit": true
+    },
+    "id": "WeakAttack03",
+    "owner": {
+        "canHitOwner": false,
+        "ownerTarget": 0
+    },
+    "slashEffects": [],
+    "weaponHitBox": {
+        "activeEndTime": 0.13,
+        "activeStartTime": 0.0,
+        "enabled": true,
+        "endNodeName": "TrailEnd",
+        "hitBoxName": "Sword",
+        "radius": 32.0,
+        "startNodeName": "TrailStart"
+    }
+}

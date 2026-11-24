@@ -1,0 +1,85 @@
+#include "PrecompiledHeader.h"
+
+#include "CharacterCollider.h"
+
+#include <algorithm>
+
+CharacterCollider::CharacterCollider()
+{
+    // Character用Colliderは生成時点でRoleとPhysics挙動を固定する。
+    EnforceCharacterSettings();
+    mass = 1.0f;
+    debugPrimitiveColor = { 0.2f, 0.6f, 1.0f, 1.0f };
+}
+
+const std::string& CharacterCollider::GetName() const
+{
+    static std::string name = "CharacterCollider";
+    return name;
+}
+
+void CharacterCollider::Gui()
+{
+    // CharacterController特有の接地/段差/滑り設定を調整する。
+    CapsuleCollider::Gui();
+
+    ImGui::SeparatorText("Character Grounding");
+    bool recreateController_ = false;
+    recreateController_ |= ImGui::DragFloat("Step Offset", &stepOffset, 0.01f, 0.0f, 5.0f);
+    recreateController_ |= ImGui::DragFloat("Contact Offset", &contactOffset, 0.001f, 0.001f, 1.0f);
+    ImGui::DragFloat("Ground Snap Distance", &groundSnapDistance, 0.01f, 0.0f, 5.0f);
+    ImGui::Checkbox("Limit Horizontal Lift", &limitHorizontalLift);
+    ImGui::DragFloat("Max Horizontal Lift", &maxHorizontalLift, 0.01f, 0.0f, 5.0f);
+    ImGui::Checkbox("Slide Off Non Ground", &slideOffNonGround);
+    ImGui::DragFloat("Non Ground Slide Speed", &nonGroundSlideSpeed, 0.01f, 0.0f, 20.0f);
+    ImGui::DragFloat("Non Ground Lift", &nonGroundLift, 0.001f, 0.0f, 1.0f);
+
+    stepOffset = (std::max)(stepOffset, 0.0f);
+    contactOffset = (std::max)(contactOffset, 0.001f);
+    groundSnapDistance = (std::max)(groundSnapDistance, 0.0f);
+    maxHorizontalLift = (std::max)(maxHorizontalLift, 0.0f);
+    nonGroundSlideSpeed = (std::max)(nonGroundSlideSpeed, 0.0f);
+    nonGroundLift = (std::max)(nonGroundLift, 0.0f);
+    if (recreateController_)
+    {
+        RecreatePhysXActor();
+    }
+}
+
+void CharacterCollider::Serialize(nlohmann::json& json_) const
+{
+    // Capsule共通設定に加えて、Character移動用の接地設定を保存する。
+    CapsuleCollider::Serialize(json_);
+    json_["StepOffset"] = stepOffset;
+    json_["ContactOffset"] = contactOffset;
+    json_["GroundSnapDistance"] = groundSnapDistance;
+    json_["LimitHorizontalLift"] = limitHorizontalLift;
+    json_["MaxHorizontalLift"] = maxHorizontalLift;
+    json_["SlideOffNonGround"] = slideOffNonGround;
+    json_["NonGroundSlideSpeed"] = nonGroundSlideSpeed;
+    json_["NonGroundLift"] = nonGroundLift;
+}
+
+void CharacterCollider::Deserialize(const nlohmann::json& j_)
+{
+    // 保存値を復元し、負値になって困る項目は安全な範囲へ丸める。
+    CapsuleCollider::Deserialize(j_);
+    stepOffset = (std::max)(j_.value("StepOffset", 0.5f), 0.0f);
+    contactOffset = (std::max)(j_.value("ContactOffset", 0.02f), 0.001f);
+    groundSnapDistance = (std::max)(j_.value("GroundSnapDistance", 0.9f), 0.0f);
+    limitHorizontalLift = j_.value("LimitHorizontalLift", true);
+    maxHorizontalLift = (std::max)(j_.value("MaxHorizontalLift", 0.05f), 0.0f);
+    slideOffNonGround = j_.value("SlideOffNonGround", true);
+    nonGroundSlideSpeed = (std::max)(j_.value("NonGroundSlideSpeed", 3.0f), 0.0f);
+    nonGroundLift = (std::max)(j_.value("NonGroundLift", 0.16f), 0.0f);
+    EnforceCharacterSettings();
+}
+
+void CharacterCollider::EnforceCharacterSettings()
+{
+    // CharacterColliderはTriggerではなく、TransformをPhysics側から動かすColliderとして固定する。
+    collisionRole = CollisionRole::CHARACTER;
+    usePhysicsResponse = true;
+    physicsControlsTransform = true;
+    isTrigger = false;
+}

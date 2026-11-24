@@ -1,0 +1,140 @@
+{
+    "CollisionMask": 0,
+    "Components": [
+        {
+            "Data": {
+                "InputEnabled": false,
+                "ParentWidgetId": "",
+                "RaycastTarget": false,
+                "RectTransform": {
+                    "AnchorMax": [
+                        0.11999999731779099,
+                        0.6399999856948853
+                    ],
+                    "AnchorMin": [
+                        0.11999999731779099,
+                        0.6399999856948853
+                    ],
+                    "AnchoredPosition": [
+                        -22.0,
+                        14.5
+                    ],
+                    "LocalRotation": 45.0,
+                    "LocalScale": [
+                        1.0,
+                        1.0
+                    ],
+                    "Pivot": [
+                        0.0,
+                        0.0
+                    ],
+                    "SizeDelta": [
+                        7.070000171661377,
+                        7.070000171661377
+                    ]
+                },
+                "Version": 1,
+                "Visible": true,
+                "WidgetId": "TitleMenu_game_startMarker",
+                "ZOrder": 15
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": true,
+            "TypeName": "UIWidgetComponent",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        },
+        {
+            "Data": {
+                "CatPos": [
+                    0.0,
+                    0.0
+                ],
+                "CatSize": [
+                    1.0,
+                    1.0
+                ],
+                "Color": [
+                    1.0,
+                    0.7699999809265137,
+                    0.36000001430511475,
+                    1.0
+                ],
+                "LinearSampling": true,
+                "LocalSize": [
+                    1.0,
+                    1.0
+                ],
+                "SdrTexture": true,
+                "ShaderID": 0,
+                "TexturePath": "",
+                "Visible": true,
+                "pivotType": 0
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": true,
+            "TypeName": "SpriteRenderer",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        },
+        {
+            "Data": {
+                "PlayOnStart": true,
+                "Preset": "MenuAccent",
+                "Settings": {
+                    "GlowColor": [
+                        0.65,
+                        1,
+                        0.8,
+                        1
+                    ],
+                    "GlowIntensity": 0.38,
+                    "GlowRadius": 4,
+                    "PulseAmount": 0.08,
+                    "PulseSpeed": 0.45,
+                    "SweepColor": [
+                        0.85,
+                        1,
+                        0.93,
+                        1
+                    ],
+                    "SweepIntensity": 0.25,
+                    "SweepSpeed": 0.24,
+                    "SweepWidth": 0.12
+                }
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "UIVisualEffectComponent",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        }
+    ],
+    "Layer": 16,
+    "Name": "TitleMenu_game_startMarker",
+    "ParentName": "TitleUI",
+    "RequiredForSceneStart": true,
+    "Transform": {
+        "Pos": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Rot": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    }
+}

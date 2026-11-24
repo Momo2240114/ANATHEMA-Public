@@ -1,0 +1,201 @@
+#include "PrecompiledHeader.h"
+
+#include "EditorCameraData.h"
+
+#include "Engine/GamePlay/Input/KeyInput.h"
+#include "Engine/GamePlay/Input/MouseInput.h"
+
+#include "Engine/GamePlay/Camera/CameraComponent.h"
+
+#include "ImGui.h"
+
+#include <algorithm>
+#include <cmath>
+
+void EditorCameraData::ResetPreviewCamera(CameraComponent& camera_)
+{
+    // エディタ用プレビューカメラを、対象が見やすい初期位置と角度へ戻す。
+    previewCameraPosition = { 0.0f, 1.5f, -6.0f };
+    previewCameraYaw = 0.0f;
+    previewCameraPitch = -0.18f;
+    previewCameraSpeedMultiplier = 1.0f;
+
+    ApplyToCamera(camera_);
+}
+
+void EditorCameraData::ApplyToCamera(CameraComponent& camera_) const
+{
+    // yaw/pitchから前方向を作り、現在位置から1単位先を注視点としてCameraComponentへ渡す。
+    const float cosPitch_ = cosf(previewCameraPitch);
+
+    const DirectX::XMFLOAT3 forward_
+    {
+        sinf(previewCameraYaw) * cosPitch_,
+        sinf(previewCameraPitch),
+        cosf(previewCameraYaw) * cosPitch_
+    };
+
+    const DirectX::XMFLOAT3 target_
+    {
+        previewCameraPosition.x + forward_.x,
+        previewCameraPosition.y + forward_.y,
+        previewCameraPosition.z + forward_.z
+    };
+
+    camera_.SetLookAt(
+        previewCameraPosition,
+        target_,
+        { 0.0f, 1.0f, 0.0f });
+}
+
+void EditorCameraData::CaptureFromCamera(const CameraComponent& camera_)
+{
+    // LookAtや復元直後も正しい向きで操作を再開できるよう、注視点から前方向を求める。
+    previewCameraPosition = camera_.GetEye();
+    const auto& focus_ = camera_.GetFocus();
+    const DirectX::XMFLOAT3 direction_ = { focus_.x - previewCameraPosition.x,
+        focus_.y - previewCameraPosition.y, focus_.z - previewCameraPosition.z };
+    DirectX::XMFLOAT3 front_ = camera_.GetFront();
+    if (DirectX::XMVectorGetX(DirectX::XMVector3LengthSq(DirectX::XMLoadFloat3(&direction_))) > 0.000001f)
+    {
+        DirectX::XMStoreFloat3(&front_, DirectX::XMVector3Normalize(DirectX::XMLoadFloat3(&direction_)));
+    }
+    previewCameraYaw = atan2f(front_.x, front_.z);
+    previewCameraPitch = asinf(std::clamp(front_.y, -1.0f, 1.0f));
+    previewCameraSpeedMultiplier = 1.0f;
+}
+
+void EditorCameraData::UpdatePreviewFreeCamera(
+    CameraComponent& camera_,
+    float deltaTime_,
+    bool previewHovered_)
+{
+    // プレビュー領域にマウスが乗っている時だけ、右ドラッグ+WASDの自由カメラ操作を受け付ける。
+    if (!enablePreviewFreeCamera)
+    {
+        return;
+    }
+    if (!previewHovered_)
+    {
+        return;
+    }
+
+    auto& mouse_ = MouseInput::Instance();
+
+    if (!mouse_.RightDown())
+    {
+        // 右ボタンを押していない時はホイールだけ消費し、他UIへ意図せず速度変更を持ち越さない。
+        mouse_.ConsumeWheelDelta();
+        return;
+    }
+
+    const Vector2 mouseDelta_ = mouse_.GetSubMousePos();
+
+    previewCameraYaw += mouseDelta_.x * previewCameraLookSensitivity;
+    previewCameraPitch -= mouseDelta_.y * previewCameraLookSensitivity;
+    // 真上/真下を越えすぎると操作が反転しやすいため、Pitchは実用範囲に制限する。
+    previewCameraPitch = std::clamp(previewCameraPitch, -1.5f, 1.5f);
+
+    const float wheelDelta_ = mouse_.ConsumeWheelDelta();
+    if (wheelDelta_ != 0.0f)
+    {
+        // ホイールで一時的な移動倍率を調整し、広いプレビュー空間でも移動しやすくする。
+        previewCameraSpeedMultiplier += wheelDelta_ > 0.0f ? 0.1f : -0.1f;
+        previewCameraSpeedMultiplier = std::clamp(previewCameraSpeedMultiplier, 0.1f, 20.0f);
+    }
+
+    const float cosPitch_ = cosf(previewCameraPitch);
+
+    const DirectX::XMFLOAT3 forward_
+    {
+        sinf(previewCameraYaw) * cosPitch_,
+        sinf(previewCameraPitch),
+        cosf(previewCameraYaw) * cosPitch_
+    };
+
+    const DirectX::XMFLOAT3 right_
+    {
+        cosf(previewCameraYaw),
+        0.0f,
+        -sinf(previewCameraYaw)
+    };
+
+    DirectX::XMFLOAT3 moveDirection_{ 0.0f, 0.0f, 0.0f };
+
+    // WASDは視線基準の前後左右、Q/EはワールドY方向の上下移動として扱う。
+    if (KeyInput::KeyPressed(KeyInput::Key::K_W))
+    {
+        moveDirection_.x += forward_.x;
+        moveDirection_.y += forward_.y;
+        moveDirection_.z += forward_.z;
+    }
+    if (KeyInput::KeyPressed(KeyInput::Key::K_S))
+    {
+        moveDirection_.x -= forward_.x;
+        moveDirection_.y -= forward_.y;
+        moveDirection_.z -= forward_.z;
+    }
+    if (KeyInput::KeyPressed(KeyInput::Key::K_D))
+    {
+        moveDirection_.x += right_.x;
+        moveDirection_.z += right_.z;
+    }
+    if (KeyInput::KeyPressed(KeyInput::Key::K_A))
+    {
+        moveDirection_.x -= right_.x;
+        moveDirection_.z -= right_.z;
+    }
+    if (KeyInput::KeyPressed(KeyInput::Key::K_E))
+    {
+        moveDirection_.y += 1.0f;
+    }
+    if (KeyInput::KeyPressed(KeyInput::Key::K_Q))
+    {
+        moveDirection_.y -= 1.0f;
+    }
+
+    DirectX::XMVECTOR moveVector_ = DirectX::XMLoadFloat3(&moveDirection_);
+    const float moveLengthSq_ = DirectX::XMVectorGetX(DirectX::XMVector3LengthSq(moveVector_));
+
+    if (moveLengthSq_ > 0.0001f)
+    {
+        // 斜め移動だけ速くならないよう正規化し、deltaTime込みの速度で位置へ加算する。
+        moveVector_ = DirectX::XMVector3Normalize(moveVector_);
+
+        const float finalSpeed_ =
+            previewCameraMoveSpeed *
+            previewCameraSpeedMultiplier *
+            deltaTime_;
+
+        moveVector_ = DirectX::XMVectorScale(moveVector_, finalSpeed_);
+
+        DirectX::XMFLOAT3 moveOffset_{};
+        DirectX::XMStoreFloat3(&moveOffset_, moveVector_);
+
+        previewCameraPosition.x += moveOffset_.x;
+        previewCameraPosition.y += moveOffset_.y;
+        previewCameraPosition.z += moveOffset_.z;
+    }
+
+    ApplyToCamera(camera_);
+}
+
+void EditorCameraData::Gui()
+{
+    // プレビューカメラの操作設定と現在値をInspector/Window側から調整・確認する。
+    ImGui::Checkbox("Enable Free Camera", &enablePreviewFreeCamera);
+    ImGui::DragFloat("Move Speed", &previewCameraMoveSpeed, 0.1f, 0.1f, 100.0f);
+    ImGui::DragFloat("Look Sensitivity", &previewCameraLookSensitivity, 0.0001f, 0.0001f, 0.05f, "%.4f");
+    ImGui::SliderFloat("Speed Multiplier", &previewCameraSpeedMultiplier, 0.1f, 20.0f);
+
+    ImGui::Separator();
+
+    ImGui::Text(
+        "Position: %.2f %.2f %.2f",
+        previewCameraPosition.x,
+        previewCameraPosition.y,
+        previewCameraPosition.z);
+
+    ImGui::Text("Yaw: %.3f", previewCameraYaw);
+    ImGui::Text("Pitch: %.3f", previewCameraPitch);
+}

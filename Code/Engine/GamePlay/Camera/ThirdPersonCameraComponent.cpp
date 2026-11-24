@@ -1,0 +1,513 @@
+#include "PrecompiledHeader.h"
+
+#include "ThirdPersonCameraComponent.h"
+
+#include "CameraComponent.h"
+#include "SpecialAttackCameraComponent.h"
+#include "Engine/Core/GameRuntimeSettings.h"
+#include "Engine/Debug/TracyProfiler.h"
+#include "Engine/GamePlay/Core/Object/GameObject.h"
+#include "Engine/GamePlay/Core/Object/GameObjectManager.h"
+#include "Engine/GamePlay/Input/KeyConfig.h"
+#include "Engine/GamePlay/Serialize/ComponentRegistry.h"
+#include "Engine/GamePlay/Transform/Transform.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
+namespace
+{
+    DirectX::XMFLOAT3 AddFloat3(
+        const DirectX::XMFLOAT3& left_,
+        const DirectX::XMFLOAT3& right_)
+    {
+        return { left_.x + right_.x, left_.y + right_.y, left_.z + right_.z };
+    }
+
+    DirectX::XMFLOAT3 LerpFloat3(
+        const DirectX::XMFLOAT3& start_,
+        const DirectX::XMFLOAT3& end_,
+        float rate_)
+    {
+        return
+        {
+            start_.x + (end_.x - start_.x) * rate_,
+            start_.y + (end_.y - start_.y) * rate_,
+            start_.z + (end_.z - start_.z) * rate_
+        };
+    }
+
+    float ExpSmoothingRate(float speed_, float deltaTime_)
+    {
+        // FrameRateに依存しにくい指数Smoothing係数へ変換する。
+        return 1.0f - std::exp(-speed_ * deltaTime_);
+    }
+
+    float SmoothStep(float value_)
+    {
+        // 復帰Blendの開始/終了をなめらかにする。
+        const float clamped_ = std::clamp(value_, 0.0f, 1.0f);
+        return clamped_ * clamped_ * (3.0f - 2.0f * clamped_);
+    }
+}
+
+void ThirdPersonCameraComponent::Start()
+{
+    // 入力Axisと参照先を初期化する。
+    RegisterDefaultInputBindings();
+    ResolveCamera();
+    ResolveTarget();
+}
+
+void ThirdPersonCameraComponent::LateUpdate(float deltaTime_)
+{
+    BS_PROFILE_SCOPE("ThirdPersonCameraComponent::LateUpdate");
+    ResolveCamera();
+    ResolveTarget();
+    // LockOnなどが制御中ならTPS側ではCameraを動かさない。
+    if (controlSuppressed)
+    {
+        return;
+    }
+
+    const std::shared_ptr<GameObject> targetObject_ = target.lock();
+    const std::shared_ptr<GameObject> owner_ = GetGameObject();
+    if (!targetObject_ || !owner_ ||
+        !owner_->transform || !targetObject_->transform)
+    {
+        return;
+    }
+
+    if (const auto special_ = owner_->GetComponent<SpecialAttackCameraComponent>(); special_ && special_->IsTracking())
+    {
+        return;
+    }
+
+    const auto gameMode_ = owner_->GetManager().GetGameModeManager();
+    // 復帰先の通常Camera位置は計算し続け、演出中の手動入力だけを停止する。
+    if (!returnBlendActive && (!gameMode_ || !gameMode_->IsPlayerControlLocked()))
+    {
+        // スティックは微調整しやすい二乗応答にし、マウスの移動量はフレーム時間を掛けずに角度へ変換する。
+        const KeyConfig& keyConfig_ = KeyConfig::Instance();
+        const auto& preferences_ = GameRuntimeSettings::GetUserPreferences();
+        const float stickX_ = keyConfig_.GetAxis("Camera_LookStickX");
+        const float stickY_ = keyConfig_.GetAxis("Camera_LookStickY");
+        const float mouseScale_ = mouseSensitivity * preferences_.mouseSensitivity;
+        const float stickTime_ = deltaTime_ * preferences_.controllerSensitivity;
+        const float mouseX_ = keyConfig_.GetRawAxis("Camera_LookMouseX") * mouseScale_;
+        const float mouseY_ = keyConfig_.GetRawAxis("Camera_LookMouseY") * mouseScale_;
+        currentYaw -= stickX_ * std::abs(stickX_) * lookSpeedX * stickTime_ + mouseX_;
+        currentYaw = std::remainder(currentYaw, 360.0f);
+        currentPitch += stickY_ * std::abs(stickY_) * lookSpeedY * stickTime_ - mouseY_;
+        currentPitch = std::clamp(currentPitch, minPitch, maxPitch);
+    }
+
+    const float yawRadian_ = DirectX::XMConvertToRadians(currentYaw);
+    const float pitchRadian_ = DirectX::XMConvertToRadians(currentPitch);
+    // Pitch/YawからCameraの前方向を作る。
+    DirectX::XMFLOAT3 front_
+    {
+        std::cos(yawRadian_) * std::cos(pitchRadian_),
+        std::sin(pitchRadian_),
+        std::sin(yawRadian_) * std::cos(pitchRadian_)
+    };
+    DirectX::XMStoreFloat3(
+        &front_,
+        DirectX::XMVector3Normalize(DirectX::XMLoadFloat3(&front_)));
+
+    const DirectX::XMFLOAT3 targetPosition_ =
+        targetObject_->transform->GetWorldPosition();
+    const DirectX::XMFLOAT3 followPosition_ =
+        AddFloat3(targetPosition_, targetOffset);
+    if (!hasCameraCenter)
+    {
+        // 初回だけTarget位置へ即追従し、起動直後の大きな補間を避ける。
+        smoothedCameraCenter = followPosition_;
+        hasCameraCenter = true;
+    }
+    const float horizontalFollowRate_ =
+        ExpSmoothingRate(horizontalFollowSpeed, deltaTime_);
+
+    const float verticalFollowRate_ =
+        ExpSmoothingRate(verticalFollowSpeed, deltaTime_);
+
+    // 横方向と縦方向で別Smoothingにし、段差やジャンプ時の見え方を調整しやすくする。
+    smoothedCameraCenter.x +=
+        (followPosition_.x - smoothedCameraCenter.x) * horizontalFollowRate_;
+
+    smoothedCameraCenter.y +=
+        (followPosition_.y - smoothedCameraCenter.y) * verticalFollowRate_;
+
+    smoothedCameraCenter.z +=
+        (followPosition_.z - smoothedCameraCenter.z) * horizontalFollowRate_;
+
+    const DirectX::XMVECTOR cameraPositionVector_ = DirectX::XMVectorSubtract(
+        DirectX::XMLoadFloat3(&smoothedCameraCenter),
+        DirectX::XMVectorScale(DirectX::XMLoadFloat3(&front_), distance));
+    DirectX::XMFLOAT3 cameraPosition_{};
+    DirectX::XMStoreFloat3(&cameraPosition_, cameraPositionVector_);
+    // 視点と注視点に同じ追従中心を使い、移動時に視線だけが先行して旋回するのを防ぐ。
+    DirectX::XMFLOAT3 lookAtPosition_ = smoothedCameraCenter;
+    if (returnBlendActive)
+    {
+        // 外部Camera制御から戻るときは、現在Camera位置から通常TPS位置へBlendする。
+        returnBlendTimer += deltaTime_;
+        const float blendRate_ = CalculateReturnBlendRate();
+        cameraPosition_ = LerpFloat3(
+            returnBlendStartPosition,
+            cameraPosition_,
+            blendRate_);
+        lookAtPosition_ = LerpFloat3(
+            returnBlendStartLookAt,
+            smoothedCameraCenter,
+            blendRate_);
+        if (returnBlendTimer >= returnBlendDuration)
+        {
+            returnBlendActive = false;
+            returnBlendTimer = 0.0f;
+        }
+    }
+
+    const DirectX::XMMATRIX viewMatrix_ = DirectX::XMMatrixLookAtLH(
+        DirectX::XMLoadFloat3(&cameraPosition_),
+        DirectX::XMLoadFloat3(&lookAtPosition_),
+        DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    DirectX::XMVECTOR determinant_;
+    // Camera GameObjectのWorldをViewの逆行列に合わせ、Scene上のTransformも同期する。
+    owner_->transform->ApplyWorldMatrix(
+        DirectX::XMMatrixInverse(&determinant_, viewMatrix_));
+
+    if (const std::shared_ptr<CameraComponent> camera_ = camera.lock())
+    {
+        camera_->SetLookAt(
+            cameraPosition_,
+            lookAtPosition_,
+            { 0.0f, 1.0f, 0.0f });
+    }
+}
+
+void ThirdPersonCameraComponent::SetControlSuppressed(bool suppressed_)
+{
+    // 抑制解除時は追従中心をリセットし、古いSmoothing位置へ戻らないようにする。
+    controlSuppressed = suppressed_;
+    if (!controlSuppressed)
+    {
+        ResetFollowTracking();
+    }
+}
+
+void ThirdPersonCameraComponent::SynchronizeViewAngles(
+    const DirectX::XMFLOAT3& cameraPosition_,
+    const DirectX::XMFLOAT3& lookAtPosition_)
+{
+    // LookAt方向からPitch/Yawを復元し、TPS Camera制御の内部角度を現在Viewへ合わせる。
+    const DirectX::XMVECTOR directionVector_ = DirectX::XMVector3Normalize(
+        DirectX::XMVectorSubtract(
+            DirectX::XMLoadFloat3(&lookAtPosition_),
+            DirectX::XMLoadFloat3(&cameraPosition_)));
+    DirectX::XMFLOAT3 direction_{};
+    DirectX::XMStoreFloat3(&direction_, directionVector_);
+    currentPitch = DirectX::XMConvertToDegrees(
+        std::asin(std::clamp(direction_.y, -1.0f, 1.0f)));
+    currentPitch = std::clamp(currentPitch, minPitch, maxPitch);
+    currentYaw = DirectX::XMConvertToDegrees(
+        std::atan2(direction_.z, direction_.x));
+}
+
+void ThirdPersonCameraComponent::BeginReturnBlendFromCurrentCamera()
+{
+    // LockOn Cameraなどから通常TPS Cameraへ戻るときの入口。
+    ResolveCamera();
+    const std::shared_ptr<CameraComponent> camera_ = camera.lock();
+    const std::shared_ptr<GameObject> targetObject_ = target.lock();
+    if (!camera_ || !targetObject_ || !targetObject_->transform)
+    {
+        ResetFollowTracking();
+        return;
+    }
+
+    returnBlendStartPosition = camera_->GetEye();
+    returnBlendStartLookAt = camera_->GetFocus();
+
+    const DirectX::XMFLOAT3 targetPosition_ =
+        targetObject_->transform->GetWorldPosition();
+    const DirectX::XMFLOAT3 followPosition_ =
+        AddFloat3(targetPosition_, targetOffset);
+    SynchronizeViewAngles(returnBlendStartPosition, followPosition_);
+
+    // 距離は通常距離へ戻し、Blend中は位置だけを滑らかにつなぐ。
+    distance = (std::max)(baseDistance, 0.1f);
+
+    smoothedCameraCenter = followPosition_;
+    hasCameraCenter = true;
+    returnBlendTimer = 0.0f;
+    returnBlendActive = returnBlendDuration > 0.0001f;
+}
+
+float ThirdPersonCameraComponent::CalculateReturnBlendRate() const
+{
+    if (returnBlendDuration <= 0.0001f)
+    {
+        return 1.0f;
+    }
+    return SmoothStep(returnBlendTimer / returnBlendDuration);
+}
+
+void ThirdPersonCameraComponent::Gui()
+{
+    char targetBuffer_[128]{};
+    strcpy_s(targetBuffer_, targetName.c_str());
+    if (ImGui::InputText("Target Object", targetBuffer_, sizeof(targetBuffer_)))
+    {
+        targetName = targetBuffer_;
+        target.reset();
+        ResolveTarget();
+    }
+    if (ImGui::BeginDragDropTarget())
+    {
+        // Hierarchy等からGameObjectをDropして追従Targetを設定する。
+        if (const ImGuiPayload* payload_ =
+            ImGui::AcceptDragDropPayload("DND_GAMEOBJECT"))
+        {
+            SetTarget(*(std::shared_ptr<GameObject>*)payload_->Data);
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    ImGui::TextDisabled(controlSuppressed
+        ? "Control is owned by CameraLockOnComponent."
+        : "TPS control active.");
+    if (ImGui::DragFloat("Base Distance", &baseDistance, 0.1f, 0.1f, 100.0f))
+    {
+        baseDistance = (std::max)(baseDistance, 0.1f);
+        distance = baseDistance;
+    }
+    ImGui::Text("Current Distance: %.3f", distance);
+    ImGui::DragFloat("Pitch", &currentPitch, 0.1f, minPitch, maxPitch);
+    ImGui::DragFloat("Yaw", &currentYaw, 0.1f, -360.0f, 360.0f);
+    ImGui::DragFloatRange2(
+        "Pitch Limit",
+        &minPitch,
+        &maxPitch,
+        0.1f,
+        -89.0f,
+        89.0f);
+    ImGui::DragFloat("Look Speed X", &lookSpeedX, 1.0f, 1.0f, 1000.0f);
+    ImGui::DragFloat("Look Speed Y", &lookSpeedY, 1.0f, 1.0f, 1000.0f);
+    ImGui::DragFloat("Mouse Sensitivity", &mouseSensitivity, 0.01f, 0.0f, 10.0f);
+    ImGui::DragFloat(
+        "Horizontal Follow Speed",
+        &horizontalFollowSpeed,
+        0.1f,
+        0.0f,
+        100.0f);
+
+    ImGui::DragFloat(
+        "Vertical Follow Speed",
+        &verticalFollowSpeed,
+        0.1f,
+        0.0f,
+        100.0f);
+
+    if (ImGui::DragFloat3("Target Offset", &targetOffset.x, 0.1f))
+    {
+        ResetFollowTracking();
+    }
+    ImGui::DragFloat("Return Blend Duration", &returnBlendDuration, 0.01f, 0.0f, 2.0f);
+    ImGui::TextDisabled(returnBlendActive ? "Return blending active." : "Return blending idle.");
+}
+
+void ThirdPersonCameraComponent::Serialize(nlohmann::json& json_) const
+{
+    if (runtimeSettingsActive)
+    {
+        json_ = originalRuntimeSettings;
+        return;
+    }
+    // RuntimeのBlend状態は保存せず、Camera設定とTarget名だけを保存する。
+    json_["targetName"] = targetName;
+    json_["baseDistance"] = baseDistance;
+    json_["distance"] = baseDistance;
+    json_["currentPitch"] = currentPitch;
+    json_["currentYaw"] = currentYaw;
+    json_["minPitch"] = minPitch;
+    json_["maxPitch"] = maxPitch;
+    json_["lookSpeedX"] = lookSpeedX;
+    json_["lookSpeedY"] = lookSpeedY;
+    json_["mouseSensitivity"] = mouseSensitivity;
+    json_["horizontalFollowSpeed"] = horizontalFollowSpeed;
+    json_["verticalFollowSpeed"] = verticalFollowSpeed;
+    json_["returnBlendDuration"] = returnBlendDuration;
+    json_["targetOffset"] = { targetOffset.x, targetOffset.y, targetOffset.z };
+}
+
+void ThirdPersonCameraComponent::Deserialize(const nlohmann::json& json_)
+{
+    runtimeSettingsActive = false;
+    target.reset();
+    originalRuntimeSettings = nlohmann::json{};
+    // 旧distance KeyもbaseDistanceとして読み、過去Sceneとの互換性を保つ。
+    targetName = json_.value("targetName", std::string{});
+    baseDistance = json_.value("baseDistance", json_.value("distance", 6.0f));
+    baseDistance = (std::max)(baseDistance, 0.1f);
+    distance = baseDistance;
+    currentPitch = json_.value("currentPitch", 20.0f);
+    currentYaw = json_.value("currentYaw", 0.0f);
+    minPitch = json_.value("minPitch", -60.0f);
+    maxPitch = json_.value("maxPitch", 60.0f);
+    lookSpeedX = json_.value("lookSpeedX", 300.0f);
+    lookSpeedY = json_.value("lookSpeedY", 200.0f);
+    mouseSensitivity = json_.value("mouseSensitivity", 0.1f);
+    const float legacyFollowSpeed_ =
+        json_.value("objectFollowSpeed", 5.0f);
+
+    // 旧objectFollowSpeedから横/縦FollowSpeedへ移行できるようにする。
+    horizontalFollowSpeed =
+        json_.value("horizontalFollowSpeed", legacyFollowSpeed_);
+
+    verticalFollowSpeed =
+        json_.value("verticalFollowSpeed", legacyFollowSpeed_);
+
+    returnBlendDuration = json_.value("returnBlendDuration", 0.35f);
+    if (json_.contains("targetOffset") &&
+        json_["targetOffset"].is_array() &&
+        json_["targetOffset"].size() >= 3)
+    {
+        targetOffset =
+        {
+            json_["targetOffset"][0].get<float>(),
+            json_["targetOffset"][1].get<float>(),
+            json_["targetOffset"][2].get<float>()
+        };
+    }
+    ResetFollowTracking();
+}
+
+void ThirdPersonCameraComponent::RegisterDefaultInputBindings()
+{
+    KeyConfig& keyConfig_ = KeyConfig::Instance();
+    const auto& axisMap_ = keyConfig_.GetAxisMap();
+
+    // 既にProject側で設定済みの場合は上書きせず、足りないDefaultだけ追加する。
+    if (axisMap_.count("Camera_LookStickX") == 0)
+    {
+        keyConfig_.BindAxis(
+            "Camera_LookStickX",
+            AxisUnit{
+                AxisSourceType::GamepadStick,
+                DeviceType::Gamepad,
+                static_cast<int>(AxisCode::RightStickX),
+                1.0f,
+                0.15f });
+    }
+    if (axisMap_.count("Camera_LookStickY") == 0)
+    {
+        keyConfig_.BindAxis(
+            "Camera_LookStickY",
+            AxisUnit{
+                AxisSourceType::GamepadStick,
+                DeviceType::Gamepad,
+                static_cast<int>(AxisCode::RightStickY),
+                1.0f,
+                0.15f });
+    }
+    if (axisMap_.count("Camera_LookMouseX") == 0)
+    {
+        keyConfig_.BindAxis(
+            "Camera_LookMouseX",
+            AxisUnit{
+                AxisSourceType::MouseMove,
+                DeviceType::KBM,
+                static_cast<int>(AxisCode::MouseX),
+                1.0f,
+                0.0f });
+    }
+    if (axisMap_.count("Camera_LookMouseY") == 0)
+    {
+        keyConfig_.BindAxis(
+            "Camera_LookMouseY",
+            AxisUnit{
+                AxisSourceType::MouseMove,
+                DeviceType::KBM,
+                static_cast<int>(AxisCode::MouseY),
+                1.0f,
+                0.0f });
+    }
+}
+
+void ThirdPersonCameraComponent::ResolveTarget()
+{
+    // 既に解決済み、またはTarget名が空なら何もしない。
+    if (target.lock() || targetName.empty())
+    {
+        return;
+    }
+    const std::shared_ptr<GameObject> owner_ = GetGameObject();
+    if (!owner_ || !owner_->manager)
+    {
+        return;
+    }
+    const std::shared_ptr<GameObject> resolvedTarget_ =
+        owner_->manager->Find(targetName);
+    if (resolvedTarget_)
+    {
+        SetTarget(resolvedTarget_);
+    }
+}
+
+std::shared_ptr<GameObject> ThirdPersonCameraComponent::GetFollowTarget()
+{
+    ResolveTarget();
+    return target.lock();
+}
+
+void ThirdPersonCameraComponent::ResolveCamera()
+{
+    if (camera.lock())
+    {
+        return;
+    }
+    const std::shared_ptr<GameObject> owner_ = GetGameObject();
+    if (owner_)
+    {
+        camera = owner_->GetComponent<CameraComponent>();
+    }
+}
+
+void ThirdPersonCameraComponent::ResetFollowTracking()
+{
+    // 次回LateUpdateで現在Target位置からSmoothingを始め直す。
+    hasCameraCenter = false;
+    smoothedCameraCenter = { 0.0f, 0.0f, 0.0f };
+}
+
+void ThirdPersonCameraComponent::SetTarget(std::shared_ptr<GameObject> target_)
+{
+    target = target_;
+    targetName = target_ ? target_->GetName() : "";
+    ResetFollowTracking();
+}
+
+REGISTER_COMPONENT(ThirdPersonCameraComponent, "ThirdPersonCameraComponent")
+
+// 元の設定は一度だけ保存し、第二形態のカメラ設定を実行時へ適用する。
+void ThirdPersonCameraComponent::ApplyRuntimeSettings(const nlohmann::json& settings_)
+{
+    BS_PROFILE_SCOPE("ThirdPersonCameraComponent::ApplyRuntimeSettings");
+    nlohmann::json original_;
+    Serialize(original_);
+    Deserialize(settings_);
+    originalRuntimeSettings = std::move(original_);
+    runtimeSettingsActive = true;
+}
+
+void ThirdPersonCameraComponent::ClearRuntimeSettings()
+{
+    if (!runtimeSettingsActive)
+    {
+        return;
+    }
+    const auto original_ = originalRuntimeSettings;
+    Deserialize(original_);
+}

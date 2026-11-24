@@ -1,0 +1,105 @@
+{
+    "CollisionMask": 0,
+    "Components": [
+        {
+            "Data": {
+                "CatPos": [
+                    0.0,
+                    0.0
+                ],
+                "CatSize": [
+                    1670.0,
+                    942.0
+                ],
+                "Color": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "LinearSampling": true,
+                "LocalSize": [
+                    1034.5313720703125,
+                    583.5499877929688
+                ],
+                "SdrTexture": true,
+                "ShaderID": 0,
+                "TexturePath": "./Data/Sprite/UI/Title/TitleLogo.png",
+                "Visible": true,
+                "pivotType": 0
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": true,
+            "TypeName": "SpriteRenderer",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        },
+        {
+            "Data": {
+                "PlayOnStart": true,
+                "Preset": "MenuHeading",
+                "Settings": {
+                    "GlowColor": [
+                        0.7,
+                        1,
+                        0.86,
+                        1
+                    ],
+                    "GlowIntensity": 0.24,
+                    "GlowRadius": 4,
+                    "ShadowColor": [
+                        0,
+                        0,
+                        0,
+                        1
+                    ],
+                    "ShadowOffset": [
+                        1,
+                        2
+                    ],
+                    "ShadowOpacity": 0.7,
+                    "ShadowSoftness": 2,
+                    "SweepColor": [
+                        0.9,
+                        1,
+                        0.94,
+                        1
+                    ],
+                    "SweepIntensity": 0.18,
+                    "SweepSpeed": 0.13,
+                    "SweepWidth": 0.12
+                }
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "UIVisualEffectComponent",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        }
+    ],
+    "Layer": 16,
+    "Name": "TitleLogo",
+    "ParentName": "",
+    "RequiredForSceneStart": true,
+    "Transform": {
+        "Pos": [
+            116.3343505859375,
+            42.439998626708984,
+            0.0
+        ],
+        "Rot": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "Scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    }
+}

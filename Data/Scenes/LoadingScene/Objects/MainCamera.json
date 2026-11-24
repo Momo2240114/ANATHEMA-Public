@@ -1,0 +1,67 @@
+{
+    "CollisionMask": 0,
+    "Components": [
+        {
+            "Data": {
+                "aspect": 1.7777777910232544,
+                "eye": [
+                    1.6609690189361572,
+                    19.435741424560547,
+                    64.45428466796875
+                ],
+                "farZ": 1000.0,
+                "focus": [
+                    1.654305100440979,
+                    19.120155334472656,
+                    65.40316009521484
+                ],
+                "fovY": 60.0,
+                "nearZ": 0.10000000149011612,
+                "priority": 0,
+                "up": [
+                    -0.002216303488239646,
+                    0.9488966464996338,
+                    0.3155790865421295
+                ]
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "CameraComponent",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        },
+        {
+            "Data": null,
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "CameraFreeController",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        }
+    ],
+    "Layer": 1,
+    "Name": "MainCamera",
+    "ParentName": "",
+    "RequiredForSceneStart": false,
+    "Transform": {
+        "Pos": [
+            1.6609690189361572,
+            19.435741424560547,
+            64.45428466796875
+        ],
+        "Rot": [
+            18.39624786376953,
+            359.5976257324219,
+            0.0
+        ],
+        "Scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    }
+}

@@ -1,0 +1,225 @@
+{
+    "AssetType": "Prefab",
+    "ObjectList": [
+        "DragonSpecialMeteor",
+        "DragonSpecialMeteorScorch"
+    ],
+    "Objects": {
+        "DragonSpecialMeteor": {
+            "ColliderComponents": [
+                {
+                    "Data": {
+                        "CanBeCharacterGround": false,
+                        "ColliderName": "MeteorSolid",
+                        "CollisionOwnerObjectName": "",
+                        "CollisionRole": 0,
+                        "ContainmentMode": 0,
+                        "Convex": false,
+                        "DebugPrimitiveColor": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "GravityScale": 1.0,
+                        "IsStatic": true,
+                        "IsTrigger": false,
+                        "Mass": 0.0,
+                        "Offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "PhysicsControlsTransform": false,
+                        "RotateVelocityThreshold": 0.0010000000474974513,
+                        "ShapeRenderFlg": false,
+                        "UseGravity": false,
+                        "UsePhysicsResponse": true,
+                        "VelocityRotationMode": 0,
+                        "shapeSizeScale": 1.0
+                    },
+                    "Enabled": true,
+                    "LateUpdateEnabled": true,
+                    "LateUpdatePriority": 0,
+                    "RequiredForSceneStart": true,
+                    "TypeName": "MeshCollider",
+                    "UpdateEnabled": true,
+                    "UpdatePriority": 0
+                }
+            ],
+            "CollisionMask": 0,
+            "Components": [
+                {
+                    "Data": {
+                        "LocalScale": 1.0,
+                        "LocalScaleXYZ": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "MaterialOverrides": [
+                            {
+                                "alphaCutoff": 0.5,
+                                "alphaMode": 0,
+                                "baseColor": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ],
+                                "disableOutline": false,
+                                "emissiveColor": [
+                                    0.0,
+                                    0.0,
+                                    0.0
+                                ],
+                                "id": 0,
+                                "metalness": 1.0,
+                                "name": "MI_Rock_2",
+                                "normalScale": 1.0,
+                                "occlusionStrength": 1.0,
+                                "outlineThicknessOffset": 1.0,
+                                "rimStrength": 0.05999999865889549,
+                                "roughness": 1.0,
+                                "shaderId": 3,
+                                "shadowTint": [
+                                    0.3824999928474426,
+                                    0.414000004529953,
+                                    0.44999998807907104
+                                ],
+                                "specularStrength": 1.0,
+                                "specularToonBlend": 0.25,
+                                "toonPbrBlend": 0.5,
+                                "uvAddressMode": 0,
+                                "uvOffset": [
+                                    0.0,
+                                    0.0
+                                ],
+                                "uvRotation": 0.0,
+                                "uvScale": [
+                                    1.0,
+                                    1.0
+                                ]
+                            }
+                        ],
+                        "ModelName": "./Data/Model/VFX/SM_Rock_17.gltf",
+                        "RootMotionName": "",
+                        "ShaderID": 1,
+                        "StaticModel": false,
+                        "UsedNaviMeshSystemFlg": false,
+                        "_RootRotationOffset": {
+                            "w": 1.0,
+                            "x": 0.0,
+                            "y": 0.0,
+                            "z": 0.0
+                        }
+                    },
+                    "Enabled": true,
+                    "LateUpdateEnabled": true,
+                    "LateUpdatePriority": 0,
+                    "RequiredForSceneStart": false,
+                    "TypeName": "GltfModel",
+                    "UpdateEnabled": true,
+                    "UpdatePriority": 0
+                },
+                {
+                    "Data": {
+                        "AssetPath": "Data/Particle/DragonSpecialMeteorTrail.json",
+                        "AttractionTargetName": "",
+                        "DissolveBoundaryBand": 0.15000000596046448,
+                        "EmitDissolveBoundary": false,
+                        "Emitters": [],
+                        "HealthOwnerName": "",
+                        "HealthyEmissionMultiplier": 1.0,
+                        "IsPlaying": true,
+                        "LowHealthEmissionMultiplier": 3.0,
+                        "MeshSourceObjectName": "",
+                        "ScaleEmissionByHealth": false
+                    },
+                    "Enabled": true,
+                    "LateUpdateEnabled": true,
+                    "LateUpdatePriority": 0,
+                    "RequiredForSceneStart": false,
+                    "TypeName": "ParticleComponent",
+                    "UpdateEnabled": true,
+                    "UpdatePriority": 0
+                }
+            ],
+            "Layer": 32,
+            "Name": "DragonSpecialMeteor",
+            "ParentName": "",
+            "RequiredForSceneStart": false,
+            "Transform": {
+                "Pos": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rot": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        "DragonSpecialMeteorScorch": {
+            "CollisionMask": 0,
+            "Components": [
+                {
+                    "Data": {
+                        "Color": [
+                            1.0,
+                            0.3400000035762787,
+                            0.07999999821186066,
+                            0.7200000286102295
+                        ],
+                        "ComponentName": "DecalComponent",
+                        "DestroyOnLifeEnd": false,
+                        "FadeOutDuration": 0.0,
+                        "LifeTime": 0.0,
+                        "MaterialPath": "",
+                        "MaterialPaths": [],
+                        "ShowDebugBounds": false,
+                        "TextureFile": "ScorchLava.png",
+                        "TexturePath": "Data/Texture/Decal/ScorchLava.png"
+                    },
+                    "Enabled": true,
+                    "LateUpdateEnabled": true,
+                    "LateUpdatePriority": 0,
+                    "RequiredForSceneStart": false,
+                    "TypeName": "DecalComponent",
+                    "UpdateEnabled": true,
+                    "UpdatePriority": 0
+                }
+            ],
+            "Layer": 32,
+            "Name": "DragonSpecialMeteorScorch",
+            "ParentName": "DragonSpecialMeteor",
+            "RequiredForSceneStart": false,
+            "Transform": {
+                "Pos": [
+                    0.0,
+                    1.0,
+                    0.0
+                ],
+                "Rot": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.7999999523162842,
+                    1.7999999523162842,
+                    1.7999999523162842
+                ]
+            }
+        }
+    },
+    "RootName": "DragonSpecialMeteor",
+    "Version": 2
+}

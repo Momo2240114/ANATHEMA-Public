@@ -1,0 +1,200 @@
+#pragma once
+
+#include "CapsuleCollider.h"
+#include "Engine/GamePlay/Combat/CombatDamageTypes.h"
+
+#include <cstdint>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+
+enum class ATTACK_SOURCE_TYPE
+{
+    // 近接攻撃。Guardされた時に攻撃側へ反応通知を返す。
+    MELEE,
+    // 飛び道具。Guardされても攻撃者本人へ硬直通知しない用途。
+    PROJECTILE,
+    // 離れた場所で発生する攻撃。罠や範囲攻撃などの扱い。
+    REMOTE
+};
+
+// 攻撃判定用Collider。
+// AttackTemplateRuntimeや攻撃エフェクトからダメージ情報を受け取り、ヒット済み対象を管理する。
+class HitBox : public CapsuleCollider
+{
+public:
+    // Combat側から流し込まれる攻撃結果データ。Health、HitReaction、VFX生成の入力になる。
+    float damage = 1.0f; // 旧データ互換用の直接Damage。
+    float damageRate = 0.01f; // 攻撃者のAttackPowerへ掛ける技倍率。
+    float fixedDamage = 0.0f; // 倍率計算後に加算する固定Damage。
+    DAMAGE_APPLY_TYPE damageApplyType = DAMAGE_APPLY_TYPE::SINGLE_HIT;
+    float damageHitInterval = 0.0f; // 多段/継続Damageで同一対象へ再Hitできる間隔。
+    int maxHitCount = 1; // 同一Activation中に同じ対象へ当てられる最大回数。0以下は無制限。
+    float hitStopDuration = 0.0f; // HitStopの長さ。
+    float hitStopScale = 0.0f; // HitStop中のTimeScale。
+    uint32_t hitStopLayerMask = 3u; // HitStop対象Layer。
+    GameObject* ownerObject = nullptr; // 攻撃者として扱うObject。未指定なら所有Object/階層から解決する。
+    std::string sourceAction; // 攻撃元Action名。HitReactionやDebug用にイベントへ流す。
+    uint32_t attackInstanceId = 0u; // 1回の攻撃Actionを識別するID。
+    uint32_t hitGroupId = 0u; // 同一攻撃内の判定Group。複数部位や多段判定を分ける。
+    bool allowMultiHit = false; // 同じ対象へ複数回Hitさせるか。
+    // 通常Guardを崩す攻撃。JustGuardの受付は残して対処の余地を確保する。
+    bool guardBreak = false;
+    bool canBeGuarded = true; // ガード不能攻撃は通常GuardとJustGuardの両方を通さない。
+    bool canHitOwner = false; // 攻撃者自身へHit可能にするか。
+    int teamId = 0; // Team判定用ID。
+    std::string justGuardedActionName; // JustGuardされた時に攻撃判定側で実行するAction名。
+    float impactPower = 1.0f; // HitReactionの強さ。
+    float knockBackPower = 0.0f; // KnockBackに使う力。
+    ATTACK_SOURCE_TYPE attackSourceType = ATTACK_SOURCE_TYPE::MELEE;
+    float targetAirLiftPower = 0.0f;
+    float attackerAirLiftPower = 0.0f;
+    bool hitOncePerActivation = true; // Activateごとに同じHurtBoxへ1回だけHitさせるか。
+    std::string attackTag = "Attack"; // Guard/Dodge/Hurt側へ渡す攻撃Tag。
+    std::string hitParticleAssetPath;
+    std::string hitParticleEmitterName;
+    float hitParticleLifeTime = 1.0f;
+    float hitParticleNormalOffset = 0.0f;
+    bool hitParticleUseImpactAxis = false;
+    float hitParticleAxisToAttackerBlend = 0.0f;
+    bool hitParticleUseTargetAttraction = false;
+    float hitParticleTargetAttractionStrength = 0.0f;
+    float hitParticleTargetAttractionRange = 0.0f;
+    float hitParticleTargetAttractionFalloff = 1.0f;
+    std::string hitMeshVFXAssetPath;
+    float hitMeshVFXLifeTime = 1.0f;
+    float hitMeshVFXNormalOffset = 0.0f;
+    std::string hitImpactEffectAssetPath;
+    std::string hitSoundPath;
+    float hitSoundVolume = 1.0f;
+    bool hitSoundMuffled = false;
+    float hitSoundMuffledCutoff = 1200.0f;
+    AttackFeedbackSettings feedback; // 武器と派生エフェクトで同じ振動・音声設定を使用する。
+    bool cameraShakeEnabled = true; // Playerが関係するHitでCameraShakeを再生するか。
+    float cameraShakeReceiveDuration = 0.12f;
+    float cameraShakeReceivePositionStrength = 0.025f;
+    float cameraShakeReceiveRotationStrength = 0.18f;
+    float cameraShakeAttackScale = 0.5f;
+    float cameraShakeFrequency = 24.0f;
+    int cameraShakePriority = 5;
+
+    // 空なら GameObject 名を使う
+    std::string actionPrefix = "";
+    // Action種別名なので固定扱い
+    std::string activateActionName = "EnableHitBox";
+    std::string deactivateActionName = "DisableHitBox";
+
+    // Activate直前にBlackboardから攻撃値を上書きするための参照先。
+    std::string blackboardCategory = "Attack";
+    std::string damageKey = "Damage";
+    std::string damageRateKey = "DamageRate";
+    std::string fixedDamageKey = "FixedDamage";
+    std::string hitStopDurationKey = "HitStopDuration";
+    std::string knockBackPowerKey = "KnockBackPower";
+    std::string hitSoundPathKey = "HitSoundPath";
+
+    HitBox();
+
+    const std::string& GetName() const override;
+
+    bool HasFixedCollisionRole() const override
+    {
+        return true;
+    }
+
+    bool HasFixedPhysicsBehavior() const override
+    {
+        return true;
+    }
+
+    void Start() override;
+    void Activate();
+    void Deactivate();
+    // アニメーション判定窓内の途中姿勢を、そのフレームの共通戦闘判定へ渡す。
+    void AddFrameSweepSample(const Capsule& capsule_);
+    CollisionManifold CheckFrameSweep(const Capsule& other_, Capsule& contactCapsule_) const;
+    // 一時的に有効化した判定は、ガード・回避・命中の全判定が終わってから閉じる。
+    void FinishFrameSweep();
+
+    uint64_t GetActivationId() const
+    {
+        return activationId;
+    }
+
+    void SetOwner(GameObject* owner_);
+    void SetAttackInstanceId(uint32_t attackInstanceId_);
+    void SetHitGroupId(uint32_t hitGroupId_);
+    void SetDamage(float damage_);
+    void SetDamageRate(float damageRate_);
+    void SetFixedDamage(float fixedDamage_);
+    void SetDamageApplyType(DAMAGE_APPLY_TYPE damageApplyType_);
+    void SetDamageHitInterval(float damageHitInterval_);
+    void SetMaxHitCount(int maxHitCount_);
+    void SetImpactPower(float impactPower_);
+    void SetKnockBackPower(float knockBackPower_);
+    bool ShouldNotifyAttackerOnGuard() const;
+    void SetAirLiftPower(float targetAirLiftPower_, float attackerAirLiftPower_);
+    void SetHitEffectPath(const std::string& path_);
+
+    void SetHitEffectBlackboardOverrideEnabled(bool enabled_)
+    {
+        hitEffectBlackboardOverrideEnabled = enabled_;
+    }
+
+    void SetAttackDataBlackboardOverrideEnabled(bool enabled_)
+    {
+        attackDataBlackboardOverrideEnabled = enabled_;
+    }
+
+    void ClearHitTargets();
+    // 広域Sphereに入った対象を、実際の扇形の角度・高さで絞る。
+    bool IsWithinAttackSector(GameObject* target_) const;
+    void SetAttackSector(float range_, float angle_, float halfHeight_);
+    // 球の広域判定から、エフェクト姿勢に沿った長方形の帯だけを通す。
+    void SetAttackBox(float halfWidth_, float halfHeight_, float halfLength_);
+
+    bool HasRegisteredHit() const
+    {
+        return !alreadyHitTargets.empty();
+    }
+
+    bool CanHit(GameObject* target_) const;
+
+private:
+    DirectX::XMFLOAT3 attackBoxHalfExtents{}; // 攻撃エフェクトの形状設定から復元する実行時の寸法。
+    float sectorRange = 0.0f; // 0なら既存のCapsule判定のみ。
+    float sectorAngle = 360.0f;
+    float sectorHalfHeight = 1.0f;
+
+public:
+    void RegisterHit(GameObject* target_);
+    std::shared_ptr<GameObject> GetAttackOwner();
+    void Gui() override;
+    void Serialize(nlohmann::json& j_) const override;
+    void Deserialize(const nlohmann::json& j_) override;
+    std::string GetActivateActionName() const;
+    std::string GetDeactivateActionName() const;
+    std::string GetActionPrefix()const;
+
+private:
+    // HitBox用に固定したCollisionRoleとPhysics挙動を再適用する。
+    void EnforceHitBoxSettings();
+    // Action/AttackTemplateがBlackboardへ置いた攻撃値を、Activate直前に読み込む。
+    void ApplyBlackboardValues();
+    // Animation/ActionSequenceからHitBoxを開閉するActionを登録する。
+    void RegisterActions();
+
+private:
+    // 同じ攻撃の多重ヒット制御用。ActivateごとにIDを進め、既に当てた対象を記録する。
+    std::vector<Capsule> frameSweepSamples;
+    // アニメーション更新後にCCTが進めた実移動だけを、保存した武器軌道へ反映する。
+    std::weak_ptr<GameObject> frameSweepOwner;
+    DirectX::XMFLOAT3 frameSweepOwnerPosition{ 0.0f, 0.0f, 0.0f };
+    bool deactivateAfterFrameSweep = false;
+    uint64_t activationId = 0;
+    bool hitEffectBlackboardOverrideEnabled = true;
+    bool attackDataBlackboardOverrideEnabled = true;
+    std::unordered_set<GameObject*> alreadyHitTargets;
+    std::unordered_map<GameObject*, int> hitTargetCounts;
+};
+

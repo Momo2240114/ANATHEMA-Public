@@ -1,0 +1,99 @@
+{
+    "ColliderComponents": [
+        {
+            "Data": {
+                "CanBeCharacterGround": false,
+                "ColliderName": "HipPhysical",
+                "CollisionOwnerObjectName": "TestTarget",
+                "CollisionRole": 0,
+                "ContainmentMode": 0,
+                "DebugPrimitiveColor": [
+                    0.15000000596046448,
+                    0.550000011920929,
+                    1.0,
+                    1.0
+                ],
+                "EndNodeName": "PlainsDragon_-Tail",
+                "GravityScale": 1.0,
+                "HalfHeight": 9.5,
+                "IsStatic": false,
+                "IsTrigger": false,
+                "Mass": 0.0,
+                "NodeModelObjectName": "TestTarget",
+                "NodeSegmentScale": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "PhysicsControlsTransform": false,
+                "Radius": 85.0,
+                "RotateVelocityThreshold": 0.0010000000474974513,
+                "ShapeRenderFlg": false,
+                "StartNodeName": "PlainsDragon_-Pelvis",
+                "UseGravity": false,
+                "UsePhysicsResponse": false,
+                "VelocityRotationMode": 0,
+                "shapeSizeScale": 1.0
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "CapsuleCollider",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        }
+    ],
+    "CollisionMask": 0,
+    "Components": [
+        {
+            "Data": {
+                "targetGameObjectName": "TestTarget",
+                "targetNodeIndex": 3,
+                "targetStartNodeName": "PlainsDragon_-Pelvis"
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "ModelAttachment",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        },
+        {
+            "Data": {
+                "BodyPart": "BODY",
+                "CombatOwnerObjectName": "TestTarget"
+            },
+            "Enabled": true,
+            "LateUpdateEnabled": true,
+            "LateUpdatePriority": 0,
+            "RequiredForSceneStart": false,
+            "TypeName": "DragonBodyPartHurtBoxComponent",
+            "UpdateEnabled": true,
+            "UpdatePriority": 0
+        }
+    ],
+    "Layer": 2,
+    "Name": "HipPart",
+    "ParentName": "BodyPartRoot",
+    "RequiredForSceneStart": false,
+    "Transform": {
+        "Pos": [
+            0.017295360565185547,
+            7.580793857574463,
+            -5.386226654052734
+        ],
+        "Rot": [
+            89.980224609375,
+            0.0,
+            0.0
+        ],
+        "Scale": [
+            -6.433920757276113e-11,
+            6.433906185598914e-11,
+            6.433908267267086e-11
+        ]
+    }
+}

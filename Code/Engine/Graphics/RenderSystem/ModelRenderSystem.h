@@ -1,0 +1,418 @@
+#pragma once
+
+
+#include <vector>
+#include <memory>
+#include <cstdint>
+#include <cstddef>
+#include <wrl.h>
+#include <map>
+#include "Engine/Graphics/Resource/ModelResource.h"
+#include "Engine/Graphics/Shader/ModelShader.h"
+#include "Engine/Graphics/Shader/BasicShader.h"
+#include "Engine/Graphics/Resource/GltfModel.h"
+
+#include "Engine/Graphics/Shader/ModelShaderID.h"
+#include "Engine/Graphics/Shader/DecalShader.h"
+#include "Engine/Graphics/Shader/LightingShader.h"
+#include "Engine/Graphics/Core/RenderContext.h"
+#include <nlohmann/json_fwd.hpp>
+
+class DecalComponent;
+class MaterialOverlayComponent;
+
+/// 1フレーム分のモデル描画要求を収集し、描画パスごとにGPUへ発行するシステム。
+/// 通常モデル、透過モデル、デカール、アウトライン、カスケードシャドウをまとめて管理する。
+class ModelRenderSystem
+{
+public:
+	ModelRenderSystem()
+	{
+	}
+
+	~ModelRenderSystem()
+	{
+	}
+
+	void Initialize(ID3D11Device* device);
+	/// モデルを当該フレームの描画キューへ登録する。
+	void PushSubmit(ModelShaderID shaderId_, std::shared_ptr<GltfModelCommponennt> model_,
+		const DirectX::XMFLOAT4X4* previousWorld_ = nullptr);
+
+	/// 登録済みモデルを描画パスごとに処理し、完了後に描画キューを破棄する。
+	void RenderAll(const RenderContext& rc);
+	void RenderDecals(const RenderContext& rc);
+	void RenderLayerDepthMask(const RenderContext& rc_);
+
+	const DirectX::XMFLOAT4& GetOutlineColor() const
+	{
+		return outlineColor;
+	}
+
+	const auto& GetShaders() const
+	{
+		return shaders;
+	}
+
+	void ShaderSettingGui();
+	void RenderInvestigationSettingGui();
+	void ShadowSettingGui();
+	void OutLineSettingGui();
+	void SerializeGraphicsSettings(nlohmann::json& j_) const;
+	void DeserializeGraphicsSettings(const nlohmann::json& j_);
+
+	enum class RENDER_PROFILE_CATEGORY
+	{
+		STAGE,
+		BARRIER,
+		DRAGON,
+		PLAYER,
+		WEAPON,
+		OTHER,
+		COUNT
+	};
+
+	struct RenderProfileStatistics
+	{
+		uint64_t drawCallCount = 0;
+		uint64_t drawIndexedCount = 0;
+		uint64_t triangleCount = 0;
+		uint64_t indexCount = 0;
+		uint64_t vertexCount = 0;
+		uint64_t visibleModelCount = 0;
+		uint64_t skippedModelCount = 0;
+		uint64_t visibleMeshCount = 0;
+		uint64_t skippedMeshCount = 0;
+		uint64_t staticModelCount = 0;
+		uint64_t skinnedModelCount = 0;
+		uint64_t staticDrawCallCount = 0;
+		uint64_t skinnedDrawCallCount = 0;
+		uint64_t staticTriangleCount = 0;
+		uint64_t skinnedTriangleCount = 0;
+		uint64_t opaqueDrawCount = 0;
+		uint64_t alphaTestDrawCount = 0;
+		uint64_t transparentDrawCount = 0;
+		uint64_t materialBindCount = 0;
+		uint64_t textureBindCount = 0;
+		uint64_t shaderBindCount = 0;
+		uint64_t shadowDrawCount = 0;
+		uint64_t shadowTriangleCount = 0;
+		uint64_t shadowStaticDrawCount = 0;
+		uint64_t shadowSkinnedDrawCount = 0;
+		uint64_t shadowStaticTriangleCount = 0;
+		uint64_t shadowSkinnedTriangleCount = 0;
+		uint64_t skeletonBufferUpdateCount = 0;
+		uint64_t skeletonMatrixUploadCount = 0;
+	};
+
+	struct RenderProfileFrame
+	{
+		RenderProfileStatistics total;
+		RenderProfileStatistics categories[static_cast<int>(RENDER_PROFILE_CATEGORY::COUNT)];
+		RenderProfileStatistics shadowCascades[4];
+	};
+
+	struct RenderInvestigationSettings
+	{
+		bool enabled = false;
+		bool useSimpleGBufferPixelShader = false;
+		bool useDepthOnlyMainPass = false;
+		bool enableDeferredPass = true;
+		bool enableShadowPass = true;
+		bool renderStaticModels = true;
+		bool renderSkinnedModels = true;
+		bool renderShadowStaticModels = true;
+		bool renderShadowSkinnedModels = true;
+		bool enableRenderStatistics = true;
+	};
+
+private:
+	// CPUとHLSL間で共有する定数バッファ構造体。16バイト境界を維持すること。
+	struct CbScene
+	{
+		DirectX::XMFLOAT4X4		viewProjection;
+		DirectX::XMFLOAT4		lightDirection;
+		DirectX::XMFLOAT4		lightColor;
+		DirectX::XMFLOAT4		cameraPosition;
+
+		DirectX::XMFLOAT4 zBufferParameteres;
+
+		int numPointLights;   // 有効なポイントライトの数
+		int numSpotLights;   // 有効なスポットライトの数
+		float outputLinearColor;
+		float padding;        // 16バイト境界合わせ
+
+		// デカール描画時にスクリーン座標からワールド座標を復元するための逆行列。
+		DirectX::XMFLOAT4X4 invViewProjection;
+	};
+
+	// GPU側のStructuredBufferと同一レイアウトを維持すること。
+	struct PointLightData
+	{
+		DirectX::XMFLOAT3 position;
+		float range;
+		DirectX::XMFLOAT3 color;
+		float intensity;
+	};
+
+	struct SpotLightData
+	{
+		DirectX::XMFLOAT3 position;
+		float range;
+		DirectX::XMFLOAT3 direction;
+		float intensity;
+		DirectX::XMFLOAT3 color;
+		float innerAngle;
+		float outerAngle;
+		float padding[3]; // HLSL側の16バイトアライメントに合わせる
+	};
+
+	struct GBufferDecalConstants {
+		DirectX::XMFLOAT4X4 decal_world_matrix;      // VS用：箱を置く
+		DirectX::XMFLOAT4X4 decal_inverse_transform; // PS用：床座標を箱空間に戻す
+		DirectX::XMFLOAT4   decal_direction;         // 予備・方向制御用
+		DirectX::XMFLOAT4   decalBaseColor;          // 色・アルファ
+		DirectX::XMFLOAT4   decalEmissive;           // xyz: emissive color, w: intensity
+		DirectX::XMFLOAT4   decalUvScaleOffset;       // xy: scale, zw: offset
+		DirectX::XMFLOAT4   decalNoiseUvScaleOffset;  // xy: scale, zw: offset
+		DirectX::XMFLOAT4   decalDissolveParams;     // x: enabled, y: threshold, z: edge width
+		DirectX::XMFLOAT4   decalDissolveEdgeColor;
+		uint32_t decalBlendMode = 0u;          // 0: Alpha, 1: Additive
+		uint32_t decalUseDissolve = 0u;
+		uint32_t decalGroundSurface = 0u;
+		float decalPadding = 0.0f;
+	};
+
+	struct CbSkeleton
+	{
+		DirectX::XMFLOAT4X4		boneTransforms[256];
+	};
+
+	size_t UploadSkeletonConstants(ID3D11DeviceContext* dc_, GltfModelCommponennt& model_, int meshIndex_);
+
+	struct CbStaticMesh
+	{
+		DirectX::XMFLOAT4X4 world;
+		DirectX::XMFLOAT4X4 normalTransform;
+	};
+
+	struct CbOutline
+	{
+		DirectX::XMFLOAT4 outlineColor;
+		float outlineThickness;
+		float depthScale;
+		float maxDistanceScale;
+		float padding;
+	};
+	static_assert(sizeof(CbOutline) == 32);
+
+	struct CbLayerModel
+	{
+		DirectX::XMFLOAT4X4 previousObjectProjection;
+		DirectX::XMFLOAT2 pixelSize;
+		uint32_t mode;
+		uint32_t hasObjectHistory;
+	};
+	static_assert(sizeof(CbLayerModel) == 80);
+
+	struct CbGBufferMaterial
+	{
+		DirectX::XMFLOAT4 baseColor;
+		DirectX::XMFLOAT3 emissiveColor;
+		float metalness;
+		float roughness;
+		float occlusionStrength;
+		float toonPbrBlend;
+		int shadingModel;
+		DirectX::XMFLOAT2 uvScale;
+		DirectX::XMFLOAT2 uvOffset;
+		float uvRotation;
+		float normalScale;
+		float specularStrength;
+		float rimStrength;
+		// RGBは影色、Wは反射のToon化率としてGBufferへ渡す。
+		DirectX::XMFLOAT4 styleParams;
+		// モデル単位のDissolve設定。未使用モデルではprogressを0にする。
+		DirectX::XMFLOAT4 dissolveParams;
+		DirectX::XMFLOAT4 dissolveEdgeColor;
+		DirectX::XMFLOAT4 dissolveDirection;
+		DirectX::XMFLOAT4 dissolveOrigin;
+	};
+
+	static_assert(sizeof(CbGBufferMaterial) == 160);
+	// LayerModelMaskPS は GBuffer の色・UVと同じレイアウトを参照する。
+	static_assert(offsetof(CbGBufferMaterial, baseColor) == 0 &&
+		offsetof(CbGBufferMaterial, emissiveColor) == 16 &&
+		offsetof(CbGBufferMaterial, uvScale) == 48 &&
+		offsetof(CbGBufferMaterial, uvOffset) == 56 &&
+		offsetof(CbGBufferMaterial, uvRotation) == 64);
+
+	// 単独物性マップの有無を描画ごとに通知し、前のメッシュの設定が残ることを防ぐ。
+	struct CbSeparateMaterialMaps
+	{
+		uint32_t useMetallicMap = 0;
+		uint32_t useRoughnessMap = 0;
+		uint32_t packedMetallicChannel = 2;
+		uint32_t packedRoughnessChannel = 1;
+		uint32_t metallicChannel = 0;
+		uint32_t roughnessChannel = 0;
+		uint32_t padding[2] = {};
+	};
+
+	static_assert(sizeof(CbSeparateMaterialMaps) == 32);
+
+	// 半透明ToonPBRにも同じDissolve設定を渡すための描画単位の定数。
+	struct CbModelDissolve
+	{
+		DirectX::XMFLOAT4 params;
+		DirectX::XMFLOAT4 edgeColor;
+		DirectX::XMFLOAT4 direction;
+		DirectX::XMFLOAT4 origin;
+	};
+
+	static_assert(sizeof(CbModelDissolve) == 64);
+
+	struct CbMaterialOverlay
+	{
+		DirectX::XMFLOAT4 color;
+		DirectX::XMFLOAT2 maskUVSpeed;
+		DirectX::XMFLOAT2 noiseUVSpeed;
+		float time;
+		float alpha;
+		float noiseStrength;
+		float dissolveThreshold;
+		uint32_t enabled;
+		uint32_t useMask;
+		uint32_t useNoise;
+		float emissiveStrength;
+		float emissivePulseSpeed;
+		float emissivePulseAmount;
+		DirectX::XMFLOAT2 padding;
+	};
+
+	static_assert(sizeof(CbMaterialOverlay) % 16 == 0);
+
+	struct DrawInfo
+	{
+		ModelShaderID				shaderId;
+		std::shared_ptr<GltfModelCommponennt>	model;
+		std::shared_ptr<MaterialOverlayComponent> materialOverlay;
+		const DirectX::XMFLOAT4X4* previousWorld = nullptr;
+	};
+
+	// 半透明メッシュはカメラから遠い順に描画するため、距離を併せて保持する。
+	struct TransparencyDrawInfo
+	{
+		ModelShaderID				shaderId;
+		std::shared_ptr<GltfModelCommponennt> model;
+		const GltfModelCommponennt::Mesh* mesh;
+		int						meshIndex;
+		float					distance;
+	};
+
+	struct CbShadowData {
+		DirectX::XMFLOAT4X4 lightViewProjections[4];
+		DirectX::XMFLOAT4   cascadeSplits;
+		DirectX::XMFLOAT4   cascadeShadowBias{ 0.001f, 0.002f, 0.003f, 0.004f };
+		float shadowAttenuation = 0.35f;
+		float indirectShadowAttenuation = 1.0f;
+		DirectX::XMFLOAT2 padding{};
+		DirectX::XMFLOAT4 cascadeShadowSoftness{ 2.0f, 8.0f, 1.0f, 1.0f };
+	};
+
+	std::shared_ptr<ModelShader>			shaders[static_cast<int>(ModelShaderID::EnumCount)];
+	std::vector<DrawInfo>					drawInfos;
+	std::vector<TransparencyDrawInfo>		transparencyDrawInfos;
+	RenderProfileFrame renderProfileFrame;
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer>	sceneConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer>	skeletonConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer>	staticMeshConstantBuffer;
+
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> outlineVertexShader;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> outlinePixelShader;
+	Microsoft::WRL::ComPtr<ID3D11InputLayout> outlineInputLayout;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> outlineConstantBuffer;
+	DirectX::XMFLOAT4 outlineColor = { 0.02f, 0.02f, 0.025f, 1.0f };
+	float outlineThickness = 0.00f;
+	static constexpr float DEFAULT_OUTLINE_REFERENCE_DISTANCE = 10.0f;
+	static constexpr float DEFAULT_OUTLINE_MAX_DISTANCE_SCALE = 4.0f;
+	bool outlineDistanceScalingEnabled = true;
+	float outlineReferenceDistance = DEFAULT_OUTLINE_REFERENCE_DISTANCE;
+	float outlineMaxDistanceScale = DEFAULT_OUTLINE_MAX_DISTANCE_SCALE;
+
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> gBufferStaticVertexShader;
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> gBufferSkinnedVertexShader;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> gBufferPixelShader;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> gBufferSimplePixelShader;
+	Microsoft::WRL::ComPtr<ID3D11InputLayout> gBufferInputLayout;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> gBufferMaterialConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> layerModelConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> separateMaterialMapsConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> modelDissolveConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> materialOverlayConstantBuffer;
+	std::shared_ptr<LightingShader> lightingShader;
+	RenderInvestigationSettings renderInvestigationSettings;
+
+	// ライト数に応じて容量を拡張するGPUバッファ。毎フレームの再生成を避ける。
+	Microsoft::WRL::ComPtr<ID3D11Buffer> lightStructuredBuffer;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> lightSRV;
+	UINT currentLightBufferSize = 0;
+
+	void UpdatePointLightBuffer(ID3D11DeviceContext* dc, const std::vector<PointLight>& lights);
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> spotLightStructuredBuffer;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> spotLightSRV;
+	UINT currentSpotLightBufferSize = 0;
+
+	void UpdateSpotLightBuffer(ID3D11DeviceContext* dc, const std::vector<SpotLight>& lights);
+
+
+private:
+	// デカール描画に必要なシェーダー、定数バッファ、当該フレームの描画要求。
+	std::shared_ptr<DecalShader> decalShader;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> decalConstantBuffer;
+
+	struct DecalDrawInfo {
+		std::shared_ptr<DecalComponent> component;
+	};
+
+	std::vector<DecalDrawInfo> decalDrawInfos;
+
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> whiteTextureSRV;
+	void CreateDefaultTextures(ID3D11Device* device);
+
+	struct CbShadowCaster
+	{
+		DirectX::XMFLOAT4X4 lightViewProjection;
+	};
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> cascadeShadowConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> shadowCasterConstantBuffer;
+
+	DirectX::XMFLOAT4 cascadeShadowBias =
+	{
+		0.001f,
+		0.002f,
+		0.003f,
+		0.004f,
+	};
+
+	bool useCascadeShadow;
+	float shadowAttenuation = 0.35f;
+	float indirectShadowAttenuation = 1.0f;
+	float cascadeShadowSoftnessRadius = 2.0f;
+	int cascadeShadowSoftnessSampleCount = 8;
+	bool useCascadeShadowSoftness = true;
+	bool useCascadeShadowRandomRotation = true;
+
+	// カスケードごとの深度マップを生成し、後段のライティングパスで参照できる状態にする。
+	void RenderCascadeShadowMaps(RenderContext& rc, const DirectX::XMFLOAT3& lightDirection);
+	void RenderShadowCasters(const RenderContext& rc, int cascadeIndex);
+
+public:
+	void PushDecalSubmit(std::shared_ptr<DecalComponent> decal) {
+		decalDrawInfos.push_back({ decal });
+	}
+};
+
